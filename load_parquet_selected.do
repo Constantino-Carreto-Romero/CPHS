@@ -4,6 +4,7 @@
 
 clear all
 set more off
+*ssc install pq
 
 ** Please change user setting and cols on line 22 to generate the panel you wish to analyse. variables are given in cphs_focused_dictionary.do
 ** all variable list is avilable in Tables folder.
@@ -11,7 +12,7 @@ set more off
 
 *--------------------------- USER SETTINGS ---------------------------------
 
-global CPHS_ROOT "/Users/abhishekkumar/Library/CloudStorage/OneDrive-UniversityofSouthampton/CPHS"
+global CPHS_ROOT "C:/Users/HP/Documents/QMUL/Financial inclusion in India/data/CPHS"
 
 *--------------------------- USER SETTINGS ---------------------------------
 
@@ -19,7 +20,7 @@ global CPHS_ROOT "/Users/abhishekkumar/Library/CloudStorage/OneDrive-Universityo
 local PQFOLDER "$CPHS_ROOT/cphs_panel_parquet"
 
 * Variables to pull. Leave empty ("") to load every column.
-local COLS "hh_id month_date wave_no state region_type hh_size n_adults tot_inc tot_exp bank1 occ1 minc_all1 has_borr borr_frm_bank borr_frm_lender has_saving_in_fd"
+local COLS "hh_id month_date wave_no state region_type hh_size n_adults tot_inc tot_exp bank1 occ1 minc_all1 has_borr borr_frm_bank borr_frm_lender has_saving_in_fd r_hh_wgt_ms hh_wgt_ms r_hh_wgt_w mwgt1"
 *---------------------------------------------------------------------------
 
 local files : dir "`PQFOLDER'" files "part_*.parquet"
@@ -46,10 +47,13 @@ foreach f of local files {
     capture {
         frame pq_scratch {
             if "`COLS'" != "" {
-                import parquet `COLS' using "`PQFOLDER'/`f'", clear
+                *import parquet `COLS' using "`PQFOLDER'/`f'", clear
+				*I cannot use "import parquet" because I have Stata 17
+				pq use `COLS' using "`PQFOLDER'/`f'", clear
             }
             else {
-                import parquet using "`PQFOLDER'/`f'", clear
+                *import parquet using "`PQFOLDER'/`f'", clear
+				pq use "`PQFOLDER'/`f'", clear
             }
         }
     }
