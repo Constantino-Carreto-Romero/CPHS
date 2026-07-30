@@ -23,6 +23,7 @@ capture label var response_status "Monthly Expenses response status"
 capture label var nr_reason       "Non-response reason"
 capture label var r_hh_wgt_ms     "Household monthly survey weight (revised)"
 capture label var hh_wgt_ms       "Household monthly survey weight (original)"
+capture label var r_hh_wgt_w      "Household wave survey weight (revised)"
 
 * ---- CMIE household classifier groups (based on the household head) ----
 capture label var age_group        "Head age group (CMIE)"
@@ -96,7 +97,7 @@ foreach v in has_borr borr_frm_bank borr_frm_lender borr_frm_shg_mfi ///
 
 * ---- per-member columns, slots 1-10 (slot 1 = head, then oldest first) ----
 * gender# age# edu# occ# minc_all# minc_wage#  +  bank# cc# kcc# demat# pf# lic# hins# mobile#
-forvalues s = 1/10 {
+forvalues s = 1/20 {
     capture label var gender`s'    "Member `s': gender (slot `s' = head/older first)"
     capture label var age`s'       "Member `s': age in years"
     capture label var edu`s'       "Member `s': education"
@@ -111,6 +112,7 @@ forvalues s = 1/10 {
     capture label var lic`s'       "Member `s': has LIC policy"
     capture label var hins`s'      "Member `s': has health insurance"
     capture label var mobile`s'    "Member `s': has mobile phone"
+	capture label var mwgt`s'      "Member `s': wave weight, age 15+ (revised)"
     foreach v in bank cc kcc demat pf lic hins mobile {
         capture label values `v'`s' yesno
     }
