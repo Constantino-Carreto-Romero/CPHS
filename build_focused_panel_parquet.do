@@ -7,7 +7,7 @@
 * Requires: ssc install pq   (installed automatically below if missing)
 
 *------------------------- SELF-CONTAINED SETTINGS -------------------------
-version 18.0
+version 17.0
 clear
 set more off
 capture set varabbrev off
@@ -17,12 +17,13 @@ capture log close _all
 * CPHS_ROOT: where the project lives (OneDrive) -- final parquet output and
 * logs go here so they're synced/backed up.
 ** you can choose variables from variable list and generate parquet
-global CPHS_ROOT "/Users/abhishekkumar/Library/CloudStorage/OneDrive-UniversityofSouthampton/CPHS"
+
+global CPHS_ROOT  "C:/Users/HP/Documents/QMUL/Financial inclusion in India/data/CPHS"
 
 * CPHS_RAW: where the raw CMIE zips actually are (local disk, not OneDrive
 * -- much faster to read repeatedly during the build). Change this if your
 * raw zips live somewhere else.
-global CPHS_RAW  "/Users/abhishekkumar/Desktop/CPHS"
+global CPHS_RAW  "C:/Users/HP/Documents/QMUL/Financial inclusion in India/data/CPHS/Raw Files"
 
 global CPHS_BUILD "$CPHS_ROOT/build"
 global CPHS_LOGS  "$CPHS_BUILD/logs"
@@ -145,13 +146,13 @@ forvalues idx = 0/143 {
                 cphs_clean_flags has_*
                 foreach kk in hh_id mem_id wave_no has_bank_ac has_creditcard ///
                     has_kisan_creditcard has_demat_ac has_pf_ac has_lic ///
-                    has_health_ins has_mobile {
+                    has_health_ins has_mobile r_ge15_mem_wgt_w {
                     capture confirm variable `kk'
                     if _rc gen `kk' = .
                 }
                 keep hh_id mem_id wave_no has_bank_ac has_creditcard ///
                     has_kisan_creditcard has_demat_ac has_pf_ac has_lic ///
-                    has_health_ins has_mobile
+                    has_health_ins has_mobile r_ge15_mem_wgt_w
                 save "$CPHS_TEMP/f_poi_wave.dta", replace
             }
             else {
@@ -164,7 +165,7 @@ forvalues idx = 0/143 {
                     borr_frm_oth_srcs has_saving_in_fd has_saving_in_po ///
                     has_saving_in_pf has_saving_in_life_ins has_saving_in_mf ///
                     has_saving_in_shares has_saving_in_gold ///
-                    has_saving_in_real_estate has_access_to_electricity {
+                    has_saving_in_real_estate has_access_to_electricity r_hh_wgt_w {
                     capture confirm variable `kk'
                     if _rc gen `kk' = .
                 }
@@ -173,7 +174,7 @@ forvalues idx = 0/143 {
                     borr_frm_oth_srcs has_saving_in_fd has_saving_in_po ///
                     has_saving_in_pf has_saving_in_life_ins has_saving_in_mf ///
                     has_saving_in_shares has_saving_in_gold ///
-                    has_saving_in_real_estate has_access_to_electricity
+                    has_saving_in_real_estate has_access_to_electricity r_hh_wgt_w
                 save "$CPHS_TEMP/f_aspirational_wave.dta", replace
             }
             erase "`work_`m''/csv/`c_`m''"
@@ -279,7 +280,7 @@ forvalues idx = 0/143 {
     gen byte ishead = relation_with_hoh == "HOH"
     gsort hh_id month_date -ishead -age_yrs mem_id
     by hh_id month_date: gen int slot = _n
-    keep if slot <= 10
+    keep if slot <= 20
     drop ishead relation_with_hoh wave_no mem_id mem_status
 
     rename age_yrs                 age
@@ -294,9 +295,10 @@ forvalues idx = 0/143 {
     rename has_lic                 lic
     rename has_health_ins          hins
     rename has_mobile              mobile
+	rename r_ge15_mem_wgt_w 	   mwgt
 
     capture noisily reshape wide gender age edu occ minc_all minc_wage ///
-        bank cc kcc demat pf lic hins mobile, i(hh_id month_date) j(slot)
+        bank cc kcc demat pf lic hins mobile mwgt, i(hh_id month_date) j(slot)
     if _rc {
         * no adult members recorded this month (edge case) -> empty shell
         clear
