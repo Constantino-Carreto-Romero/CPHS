@@ -1,15 +1,16 @@
-﻿version 17.0
+version 17.0
 clear all
 set more off
 
 * Original inputs are never overwritten.
-local root "C:/Users/sophi/OneDrive - ΠΑΝΕΠΙΣΤΗΜΙΟ ΙΩΑΝΝΙΝΩΝ/papers/anticonversion"
-local out "`root'/Data"
+local root "C:/Users/HP/Documents/QMUL/Financial inclusion in India"  // CC 2026-11: project root on Constantino's laptop
+local out "`root'/tables/anticonversion"  // CC 2026-11: audit tables
+local dat "`root'/data/anticonversion"  // CC 2026-11: input CSVs and the merged panel
 capture log close anticonversion
-log using "`out'/anticonversion_build_merged.log", text replace name(anticonversion)
+log using "`root'/code/anticonversion/Sofia/anticonversion_build_merged.log", text replace name(anticonversion)  // CC 2026-11: logs stay with the code
 
 tempfile policy
-import delimited using "`root'/anticonversion_states.csv", clear varnames(1) stringcols(_all) encoding(utf8)
+import delimited using "`dat'/anticonversion_states.csv", clear varnames(1) stringcols(_all) encoding(utf8)  // CC 2026-11: state file lives in data/anticonversion
 assert _N == 36
 rename state policy_state
 rename group policy_group
@@ -24,6 +25,9 @@ gen byte never_treated = inlist(policy_class, "D", "E", "F")
 gen double onset_date_lower = daily(treat_date_lower, "YMD")
 gen double onset_date_upper = daily(treat_date_upper, "YMD")
 format onset_date_lower onset_date_upper %td
+* CC 2026-11: drop the text columns of the state file before the merge. They would repeat on every
+* household-wave row (about 2 GB) and no analysis uses them; they remain in anticonversion_states.csv.
+drop law note date_quality intens_date treat_date_lower treat_date_upper policy_group
 
 * First calendar wave entirely after commencement (not a full interview recall window).
 * All main commencement dates are within a wave, so main start is onset_wave + 1.
@@ -43,7 +47,7 @@ isid pc11_state_id
 assert _N == 35
 save `policy'
 
-use "`root'/Data/sample20percent.dta", clear
+use hh_id hh_panel_id wave_no state pc11_state_id merge_key region_type r_hh_wgt_w hh_size age1 gender1 edu1 occ1 marital1 empst1 relig1 r_tot_inc r_tot_exp r_minc_all1 r_inc_of_all_mems_frm_wages r_inc_of_hh_frm_pvt_trf r_inc_of_hh_frm_biz_profit r_inc_of_hh_frm_self_prodn r_inc_of_hh_frm_govt_trf r_inc_of_all_mems_frm_interest r_m_exp_food r_m_exp_all_emis r_m_exp_health r_m_exp_edu r_m_exp_remittances_sent has_borr borr_frm_bank borr_frm_lender borr_frm_shg_mfi borr_frm_shg borr_frm_mfi borr_frm_nbfc borr_frm_rel_frnds borr_frm_chtfund borr_frm_shops borr_frm_cc borr_frm_oth_srcs borr_for_hsg borr_for_edu borr_for_med_exp borr_for_wedding borr_for_cons_exp borr_for_cds borr_for_biz borr_for_invsts borr_for_repay borr_for_vehicle borr_for_oth_prps has_saving_in_fd has_saving_in_po has_saving_in_pf has_saving_in_life_ins has_saving_in_mf has_saving_in_shares has_saving_in_gold has_saving_in_real_estate has_saving_in_chtfund has_access_to_electricity has_toilet_in_house two_wheelers_owned refrigerators_owned cattle_owned tractors_owned any_bank sh_bank any_cc sh_cc any_kcc sh_kcc any_lic sh_lic any_hins sh_hins any_mobile sh_mobile any_hosp sh_hosp any_healthy sh_healthy any_medic sh_medic using "`root'/data/cphs_wave_merged.dta", clear  // CC 2026-11: full CPHS panel (20 Oct 2026); only the variables the analyses use, to fit in 12 GB of RAM
 confirm variable wave_no state pc11_state_id
 capture confirm string variable pc11_state_id
 if !_rc destring pc11_state_id, replace
@@ -105,7 +109,7 @@ save `household_treatment'
 tempfile districts
 
 * Step 1 only: district attributes. No pair expansion or estimation.
-import delimited using "`root'/border_districts.csv", clear varnames(1) stringcols(_all) encoding(utf8)
+import delimited using "`dat'/border_districts.csv", clear varnames(1) stringcols(_all) encoding(utf8)  // CC 2026-11: district file lives in data/anticonversion
 assert _N == 640
 rename pc11_district_id merge_key
 destring pc11_state_id, replace
@@ -145,7 +149,7 @@ isid pc11_state_id merge_key
 sort pc11_state_id merge_key
 export delimited using "`out'/district_geography_audit.csv", replace
 restore
-save "`out'/sample20percent_with_treatment_districts.dta", replace
+save "`dat'/cphs_wave_merged_with_treatment_districts.dta", replace  // CC 2026-11: merged panel goes to data/anticonversion
 
 * Distances are from district central points, never household distances.
 * window bounds use commencement-wave coding; they are descriptive here.

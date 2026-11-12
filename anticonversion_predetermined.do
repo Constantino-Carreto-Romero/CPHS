@@ -4,19 +4,22 @@ set more off
 set linesize 255
 set graphics on
 
-local root "C:/Users/sophi/OneDrive - ΠΑΝΕΠΙΣΤΗΜΙΟ ΙΩΑΝΝΙΝΩΝ/papers/anticonversion"
-local out "`root'/Data/predetermined_2014_results"
+local root "C:/Users/HP/Documents/QMUL/Financial inclusion in India"  // CC 2026-11: project root on Constantino's laptop
+local out "`root'/tables/anticonversion/predetermined_2014_results"  // CC 2026-11: CSV and DTA results
 capture mkdir "`out'"
+local fig "`root'/figures/anticonversion/predetermined_2014_results"  // CC 2026-11: PNG and GPH figures
+capture mkdir "`fig'"
 capture log close pred
-log using "`out'/predetermined_results.log", text replace name(pred)
+log using "`root'/code/anticonversion/Sofia/predetermined_results.log", text replace name(pred)  // CC 2026-11: logs stay with the code
 csdid version
 
 * DEFAULT: three main outcomes. Set run_all=1 to repeat the expanded outcome screen (education-category outcomes excluded).
 local run_all 0
+if "$AC_RUN_ALL" != "" local run_all $AC_RUN_ALL  // CC 2026-11: a master do-file can override run_all through this global
 * All baseline covariates use wave 1 (Jan-Apr 2014), before every in-panel adoption.
 * No contemporaneous covariates, survey weights, logs, or winsorization.
 * This does not establish conditional parallel trends or solve few-state inference.
-use "`root'/Data/sample20percent_with_treatment_districts.dta", clear
+use hh_panel_id wave_no pc11_state_id analysis_eligible cohort_onset state region_type hh_size age1 gender1 edu1 occ1 marital1 empst1 relig1 r_tot_inc r_tot_exp r_minc_all1 r_inc_of_all_mems_frm_wages r_inc_of_hh_frm_pvt_trf r_inc_of_hh_frm_biz_profit r_inc_of_hh_frm_self_prodn r_inc_of_hh_frm_govt_trf r_inc_of_all_mems_frm_interest r_m_exp_food r_m_exp_all_emis r_m_exp_health r_m_exp_edu r_m_exp_remittances_sent has_borr borr_frm_bank borr_frm_lender borr_frm_shg_mfi borr_frm_shg borr_frm_mfi borr_frm_nbfc borr_frm_rel_frnds borr_frm_chtfund borr_frm_shops borr_frm_cc borr_frm_oth_srcs borr_for_hsg borr_for_edu borr_for_med_exp borr_for_wedding borr_for_cons_exp borr_for_cds borr_for_biz borr_for_invsts borr_for_repay borr_for_vehicle borr_for_oth_prps has_saving_in_fd has_saving_in_po has_saving_in_pf has_saving_in_life_ins has_saving_in_mf has_saving_in_shares has_saving_in_gold has_saving_in_real_estate has_saving_in_chtfund has_access_to_electricity has_toilet_in_house two_wheelers_owned refrigerators_owned cattle_owned tractors_owned any_bank sh_bank any_cc sh_cc any_kcc sh_kcc any_lic sh_lic any_hins sh_hins any_mobile sh_mobile any_hosp sh_hosp any_healthy sh_healthy any_medic sh_medic using "`root'/data/anticonversion/cphs_wave_merged_with_treatment_districts.dta", clear  // CC 2026-11: merged panel built from the full CPHS panel; only the variables used, to fit in 12 GB of RAM
 keep if analysis_eligible==1
 isid hh_panel_id wave_no
 assert !missing(pc11_state_id,cohort_onset)
@@ -83,7 +86,13 @@ preserve
     table cohort_onset, statistic(mean b_age10 b_hhsize)
 restore
 
-local controls "c.b_age10##c.b_age10 c.b_hhsize i.b_female i.b_urban i.b_educ i.b_relig"
+* CC 2026-11: i.b_urban is dropped from the controls. After the 2023 rural resample in Jharkhand, all
+* cohort-12 households observed in waves 29-36 were urban in 2014, so the covariate design is singular
+* there and csdid 2.0.3 leaves those 8 ATT(g,t) cells missing; with no dropmissing, every aggregation
+* then fails (r(498)). Same choice as in anticonversion_csdid_standard_panel.do (urban left out after
+* the prior singularity). b_urban is still built and still required in baseline_complete, so the
+* estimation sample does not change.
+local controls "c.b_age10##c.b_age10 c.b_hhsize i.b_female i.b_educ i.b_relig"  // CC 2026-11: i.b_urban removed (see note above)
 
 gen double pc_01 = r_tot_inc/hh_size if hh_size>0 & hh_size<.
 gen double pc_02 = r_tot_exp/hh_size if hh_size>0 & hh_size<.
@@ -130,7 +139,7 @@ foreach y of local outcomes {
     foreach spec in dr_baseline {
         local xs "`controls'"
         local estimator "dr"
-        display as text "OUTCOME `y'; SPECIFICATION `spec'"
+        display as text "OUTCOME `y'; SPECIFICATION `spec'; $S_DATE $S_TIME"  // CC 2026-11: time stamp to follow progress and time the run
         capture noisily csdid `y' `xs', ivar(hh_panel_id) time(wave_no) gvar(cohort_onset) notyet method(`estimator') bal(none) baseperiod(universal) cluster(pc11_state_id) wboot(reps(999) rseed(29102026))
         local rc=_rc
         post status ("`y'") ("`spec'") ("estimation") (`rc')
@@ -167,8 +176,8 @@ foreach y of local outcomes {
         preserve
             use "`out'/`y'_`spec'_plotdata.dta", clear
             twoway (rcap ci_high ci_low x, lcolor(navy)) (scatter estimate x, mcolor(navy) msize(small)), title("`y': `spec'") xtitle("Waves relative to law commencement") ytitle("ATT in outcome units") xlabel(-6(1)6) yline(0, lpattern(dash) lcolor(gs8)) xline(-0.5, lpattern(dash) lcolor(maroon)) legend(off) note("Baseline-complete households. Covariates, when included, fixed at wave 1 (2014)." "State-clustered multiplier bootstrap: 999 draws. No survey weights." "Event aggregation: -6 to +6, balance(6). Few treated states; preliminary inference.", size(vsmall)) name(pred_event, replace)
-            graph export "`out'/`y'_`spec'_event.png", replace width(2400)
-            graph save "`out'/`y'_`spec'_event.gph", replace
+            graph export "`fig'/`y'_`spec'_event.png", replace width(2400)  // CC 2026-11: figures go to figures/anticonversion
+            graph save "`fig'/`y'_`spec'_event.gph", replace
             graph drop pred_event
         restore
     }
